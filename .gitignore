@@ -1,0 +1,14 @@
+###
+### .gitignore
+###
+
+# Compiled files
+*.elc
+*-autoloads.el
+*-pkg.el
+
+# Backup files
+*~
+
+# Tags
+TAGS
