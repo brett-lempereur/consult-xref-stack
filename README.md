@@ -2,6 +2,8 @@
 
 Navigate the Xref stack with Consult.
 
+![Example recording showing backward stack navigation](images/example.gif)
+
 ## Commands
 
 * `consult-xref-stack-backward` -- Navigate backwards through history.
