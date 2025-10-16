@@ -68,7 +68,8 @@
       (if (not (member pos (car history)))
           (error "Marker is not in backwards stack")
         (while (not (equal (caar history) pos))
-          (pop (car history)))
+          ;; Shift the backward history to the forward history.
+          (push (pop (car history)) (cdr history)))
         (pop (car history))
         (unless (equal (point-marker) (cadr history))
           (push (point-marker) (cdr history)))))
@@ -91,7 +92,8 @@
       (if (not (member pos (cdr history)))
           (error "Marker is not in forwards stack")
         (while (not (equal (cadr history) pos))
-          (pop (cdr history)))
+          ;; Shift the forwards history to the backward history.
+          (push (pop (cdr history)) (car history)))
         (pop (cdr history))
         (unless (equal (point-marker) (caar history))
           (push (point-marker) (car history)))))
