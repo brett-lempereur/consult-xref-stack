@@ -47,6 +47,11 @@
 (require 'consult-xref)
 (require 'xref)
 
+(defconst consult-xref-stack--narrow
+  `((?f . "Forward")
+    (?b . "Backward"))
+  "Xref stack narrowing configuration.")
+
 (defun consult-xref-stack--history ()
   "Return xref history using `xref-history-storage'."
   (funcall xref-history-storage))
@@ -107,6 +112,22 @@
     (run-hooks 'consult-after-jump-hook))
   nil)
 
+(defun consult-xref-stack--jump (pos)
+  "Navigate backwards or forwards to POS and update the backward and
+forward stacks."
+  (when pos
+    (when (consp pos) (setq pos (car pos)))
+    (let ((history (consult-xref-stack--history)))
+      ;; Order is important if the selected candidate is present in
+      ;; both stacks, because at the moment we don't know whether it
+      ;; came from the backward or forward group.  Forward history is
+      ;; much shorter and truncated after every use of
+      ;; `xref-find-definitions' , so lets start there.
+      (if (member pos (cdr history))
+          (consult-xref-stack--forward-jump pos)
+        (consult-xref-stack--backward-jump pos))))
+  nil)
+
 (defun consult-xref-stack--backward-state ()
   "State function used to select a candidate position in the backward stack."
   (consult--state-with-return (consult--jump-preview)
@@ -116,6 +137,34 @@
   "State function used to select a candidate position in the forward stack."
   (consult--state-with-return (consult--jump-preview)
                               #'consult-xref-stack--forward-jump))
+
+(defun consult-xref-stack--state ()
+  "State function used to select a candidate position in the forward or the
+backward stack."
+  (consult--state-with-return (consult--jump-preview)
+                              #'consult-xref-stack--jump))
+
+(defun consult-xref-stack--add-group (cands group)
+  "Add text property `consult--type' with value GROUP to CANDS, to
+distinguish forward and backward xref history."
+  (mapcar (lambda (cand)
+            (add-text-properties 0 1 `(consult--type ,group) cand)
+            cand)
+          cands))
+
+(defun consult-xref-stack--candidates ()
+  "Return list of candidates strings for forward and backward xref history
+together."
+  (mapcan (lambda (pair)
+            (when-let* ((markers (car pair))
+                        (direction (cdr pair)))
+              (consult-xref-stack--add-group
+               (consult--global-mark-candidates markers)
+               direction)))
+          (list (cons (consult-xref-stack--backward-history)
+                      (car (rassoc "Backward" consult-xref-stack--narrow)))
+                (cons (consult-xref-stack--forward-history)
+                      (car (rassoc "Forward" consult-xref-stack--narrow))))))
 
 ;;;###autoload
 (defun consult-xref-stack-backward ()
@@ -146,6 +195,24 @@ The command supports preview of the currently selected position."
    :require-match t
    :lookup #'consult--lookup-location
    :state (consult-xref-stack--forward-state)))
+
+;;;###autoload
+(defun consult-xref-stack ()
+  "Jump to a marker in the Xref history stack in both directions.
+
+The command supports preview of the currently selected position, groups
+and narrowing."
+  (interactive)
+  (consult--read
+   (consult-xref-stack--candidates)
+   :prompt "Go to previous cross-reference: "
+   :category 'consult-location
+   :sort nil
+   :require-match t
+   :group (consult--type-group consult-xref-stack--narrow)
+   :narrow (consult--type-narrow consult-xref-stack--narrow)
+   :lookup #'consult--lookup-location
+   :state (consult-xref-stack--state)))
 
 (provide 'consult-xref-stack)
 ;;; consult-xref-stack.el ends here
